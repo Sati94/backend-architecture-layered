@@ -1,0 +1,12 @@
+@host = http://localhost:4400
+
+###
+
+POST {{host}}/pets
+Content-Type: application/json
+
+{ "name": "Snowball" }
+
+###
+
+GET {{host}}/pets

@@ -1,0 +1,4 @@
+{
+  "include": ["tsconfig.json"],
+  "rootDirs": ["./src", "./test"],
+}

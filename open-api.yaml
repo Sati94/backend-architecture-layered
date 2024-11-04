@@ -1,0 +1,135 @@
+openapi: 3.0.3
+info:
+  title: Keep My Pet
+  version: 1.0.0
+  description: Keep your pet API.
+servers:
+  - url: http://localhost:4400
+paths:
+  /pets:
+    post:
+      summary: Create a new pet.
+      requestBody:
+        content:
+          application/json:
+            schema: 
+              $ref: '#/components/schemas/CreatePet'
+      responses:
+        '201':
+          description: The new pet created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          description: Validation error, the name of the pet is too short or missing.
+    get:
+      summary: Get a list of all available pets.
+      responses:
+        '200':
+          description: The pets retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: 
+                  $ref: '#/components/schemas/Pet'
+  /pets/{petId}:
+    get:
+      summary: Get the current status of a pet.
+      parameters:
+        - $ref: '#/components/parameters/petId'
+      responses:
+        '200':
+          $ref: '#/components/responses/petStatusOk'
+        '404':
+          description: The requested pet is not found.
+  /pets/{petId}/food:
+    post:
+      summary: Feed the pet with one unit of food.
+      description: It increases the pet's food in front of them.
+      parameters:
+        - $ref: '#/components/parameters/petId'
+      responses:
+        '200':
+          $ref: '#/components/responses/petStatusOk'
+        '404':
+          description: The requested pet is not found.
+        '400':
+          description: You can not feed a dead pet. If the pet weight is 0, it is dead.
+  /pets/{petId}/age:
+    post:
+      summary: A day passes. 
+      description: |- 
+        - It increases the age property of the pet. 
+        - During the day the pet will eat one unit of food if they have any and therefor their weight will increase.
+        - If the pet does not have any food their weight will decrease.
+        - If the pet's weight goes to 0 it will be dead.
+      parameters:
+        - $ref: '#/components/parameters/petId'
+      responses:
+        '200':
+          $ref: '#/components/responses/petStatusOk'
+        '404':
+          description: The requested pet is not found.
+        '400':
+          description: Your pet is dead. The pet weight is 0, it is dead.
+components:
+  parameters:
+    petId:
+      name: petId
+      in: path
+      required: true
+      schema:
+        type: number
+  responses:
+    petStatusOk:
+      description: The pet is successfully retrieved.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Pet'
+  schemas: 
+    Pet:
+      type: object
+      properties:
+        id:
+          type: number
+          description: The unique ID for the pet.
+          example: 6
+        name:
+          type: string
+          description: A friendly name for the pet.
+          example: Fluffy
+        food:
+          type: number
+          description: The number of food unit in front of the pet.
+          example: 4
+        weight:
+          type: number
+          description: The current weight of the pet in a weight unit. If it goes to 0, your pet will be dead.
+          example: 3
+        age:
+          type: number
+          description: The age of the pet in days.
+          example: 4
+      required:
+        - id
+        - name
+        - food
+        - weight
+        - age
+      additionalProperties: false
+    CreatePet:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 3
+          description: A friendly name for the pet.
+          example: Fluffy
+      required:
+        - name
+      additionalProperties: false
+  
+
