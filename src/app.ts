@@ -1,51 +1,17 @@
 import fastify from 'fastify';
-import { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts'
+import { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';
 import cors from '@fastify/cors';
-import { readFile, writeFile } from 'node:fs/promises';
-import { PathLike, existsSync, writeFileSync } from 'node:fs';
-
-function getNextId<T extends {id: number}>(items: T[]) {
-  if (items.length === 0) {
-    return 1;
-  }
-  const ids = items.map(item => item.id);
-  const maxId = Math.max(...ids);
-  return maxId + 1;
-}
-
-class JsonFileStore<T> {
-  constructor(private readonly path: PathLike) {
-    if(!existsSync(this.path)) {
-      writeFileSync(this.path, '[]', 'utf-8');
-    }
-  }
-
-  async read() {
-    const content = await readFile(this.path, 'utf-8');
-    const data = JSON.parse(content) as T[];
-    return data 
-  }
-  async write(data: T[]) {
-    const content = JSON.stringify(data, null, 2);
-    await writeFile(this.path, content, 'utf-8');
-  } 
-
-}
-
-
-type Pet = {
-  id: number,
-  name: string
-  food: number,
-  weight: number
-  age: number,
-}
+import { PathLike } from 'node:fs';
+import { JsonFileStore } from './utils/json-file-store';
+import { Pet } from './business/pet-type';
+import { PetService } from './business/pet-service';
 
 export default async function createApp(options = {}, dataFilePath: PathLike) {
-  const app = fastify(options).withTypeProvider<JsonSchemaToTsProvider>()
+  const app = fastify(options).withTypeProvider<JsonSchemaToTsProvider>();
   await app.register(cors, {});
 
   const petStore = new JsonFileStore<Pet>(dataFilePath);
+  const petService = new PetService(petStore);
 
   const postPetSchema = {
     body: {
@@ -54,39 +20,66 @@ export default async function createApp(options = {}, dataFilePath: PathLike) {
         name: { type: 'string' },
       },
       required: ['name'],
-      additionalProperties: false
-    }
-  } as const
-  app.post(
-    '/pets',
-    { schema: postPetSchema },
-    async (request, reply) => {
-      const { name } = request.body
+      additionalProperties: false,
+    },
+  } as const;
 
-      const pets = await petStore.read();
-      const nextId = getNextId(pets);
-      const newPet: Pet = {
-        id: nextId,
-        name,
-        food: 1,
-        weight: 1,
-        age: 1
+  app.post('/pets', { schema: postPetSchema }, async (request, reply) => {
+    const { name } = request.body;
+    const newPet = await petService.born(name);
+    reply.status(201).send(newPet);
+  });
+
+  app.get('/pets', async (request, reply) => {
+    const pets = await petService.getAllPets();
+    reply.send(pets);
+  });
+
+  app.get('/pets/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const petId = Number(id);
+    if (isNaN(petId)) {
+      return reply.status(400).send({ error: 'Invalid pet ID' });
+    }
+    const pet = await petService.getPetById(petId);
+    if (!pet) {
+      return reply.status(404).send({ error: 'Pet not found' });
+    }
+    reply.status(200).send(pet);
+  })
+
+  app.post('/pets/:id/food', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const petId = Number(id);
+
+    try {
+      const updatedPet = await petService.feedPetById(petId);
+
+      if (updatedPet === null) {
+        reply.status(404).send({ error: 'Pet not found' });
+      } else {
+        reply.status(200).send(updatedPet);
       }
-      pets.push(newPet);
-      await petStore.write(pets);
+    } catch (error) {
 
-      reply.status(201);
-      return newPet;
+      reply.status(400);
     }
-  )
+  });
 
-  app.get(
-    '/pets',
-    async () => {
-      const pets = await petStore.read();
-      return pets;
+  app.post('/pets/:id/age', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const petId = Number(id);
+
+    try {
+      const updatedPet = await petService.makeOlderPetById(petId);
+      if (!updatedPet) {
+        return reply.status(404).send({ error: 'Pet not found or is dead' });
+      }
+      reply.status(200).send(updatedPet);
+    } catch (error) {
+      reply.status(500).send({ error: 'Internal Server Error' });
     }
-  )
+  });
 
   return app;
 }

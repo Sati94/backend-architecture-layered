@@ -10,3 +10,16 @@ Content-Type: application/json
 ###
 
 GET {{host}}/pets
+
+###
+
+GET {{host}}/pets/1
+
+###
+
+POST {{host}}/pets/1/food
+
+###
+
+POST {{host}}/pets/1/age
+
